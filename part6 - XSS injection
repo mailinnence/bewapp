@@ -177,6 +177,50 @@ http://192.168.189.128/bWAPP/xss_ajax_2-2.php?title=%3Cscript%3Ealert(document.c
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 47강.Cross-Site Scripting(XSS) - Reflected(AJAX/XML)
+
+1. AJAX(Asynchronous Javascript And XML)
+ - 다른 도메인의 서버 URL을 호출하여 데이터를 가져올 수 있는 기능을 수행한다.
+ - 사용자와 웹페이지와 자유롭게 상호작용 할 수 있는 기능을 수행한다.
+ - 별도의 프로그램 없이 웹페이지를 다시 로딩할 필요 없이 내용, 메뉴 등을 제공한다.
+ - 서버 처리를 대기하지 않고, 비동기 요청이 가능하다.
+
+
+2. XML(Extensible Markup Language)
+ - HTML을 개선하여 만든 언어이다.
+ - 홈페이지 구축기능, 검색기능 등이 향상되었고, 웹 페이지의 추가와 작성이 편리해졌다.
+ - XML을 이용하면 사용자가 구조화된 데이터베이스를 조작할 수 있다.
+
+
+xml 로 이루어진 코드라도 자바스크립트를 입력할 수 있다.
+
+&lt;img src='#' onerror='alert(1)'&gt;
+&lt;img src=&apos;#&apos; onerror=&apos; alert("Warning")&apos; &gt;
+
+이 강의에서 알아야 하는 것은 
+
+&apos;
+
+ - 어퍼스트로피라고 불리우며, 웹브라우저에서 특정 문자를 표현할때 &apos;로 입력하면 '(작은따옴표)로 인식한다.
+ - 또는 브라우저 상에서 '(작은따옴표)를 인식하지 못하면 &apos; 나오기도 한다.
+ - 자바스크립트를 이용하여 문자열을 입력할때 '(작은따옴표)가 연속으로 입력하면 오류가 나는 경우가 있다.
+ 
+ " 와 ' 는 서로 다르게 인식하는데 기능은 같기 떄문에 우회가 가능하다 고로
+
+
+ function xss_check_3($data, $encoding = "UTF-8")
+{
+
+    // htmlspecialchars - converts special characters to HTML entities   
+    // '&' (ampersand) becomes '&amp;'
+    // '"' (double quote) becomes '&quot;' when ENT_NOQUOTES is not set
+    // "'" (single quote) becomes '&#039;' (or &apos;) only when ENT_QUOTES is set
+    // '<' (less than) becomes '&lt;'
+    // '>' (greater than) becomes '&gt;' 
+    return htmlspecialchars($data, ENT_QUOTES, $encoding); 
+    
+}
+
+" 와 ' 를 같게 인식하는 ENT_QUOTES 를 반드시 사용한다
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -186,6 +230,35 @@ http://192.168.189.128/bWAPP/xss_ajax_2-2.php?title=%3Cscript%3Ealert(document.c
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 48강.Cross-Site Scripting(XSS) - Reflected(Back Button)
+
+- 이 시나리오는 페이지 이동 버튼을 클릭했을때, 인젝션된 스크립트가 동작하도록 하는 내용이다.
+
+특정 사이트로 이동하는데 그게 이동전 사이트라면 (뒤로 가기 버튼을 이용하는 경우가 많음 똑같은 url 을 두번 치면 뒤로가기가 제자리 거름이 되기때문)
+
+
+ <input type=button value="Go back" onClick="document.location.href=''">
+위 코드는 php 백엔드에 의해서 나온 결과일뿐 실제 작동은 사용자의 전 페이지로 이동하게 설정되서 나올 것 이다.
+
+똑같은 url 을 두번 치면 뒤로가기가 제자리 거름으로 만들고
+
+버프스위트로 잡아서 
+코드를 조작해보자
+백엔드에서 위 코드로 이동할 페이지를 보낸다면
+Referer 값을 보낸다고 의심할 수 있다.
+Referer 의 기존 값을 지우고 위 코드에 작동 할 수 있게
+
+';alert(document.cookie);"
+이렇게 코드를 넣어 보자
+
+<input type=button value="Go back" onClick="document.location.href='';alert(document.cookie);"'">
+
+그리고나서 다시 버튼을 누르면 쿠키값이 나올 것이다.
+
+실제로 공격이 이뤄질 수 있는지...? 조금 애매한 취약점이지만 취약점은 없을 수록 좋다.
+무튼 값이 이동한다면 전부 보안을 해야한다.
+
+보안코드는 위 강의와 같다
+
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
