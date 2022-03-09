@@ -76,10 +76,40 @@ post 경우 버프스위트등과 같은 프로그램등 패킷을 조작하여 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 45강.Cross-Site Scripting(XSS) - Reflected(JSON)
 
+1. JSON(JavaScript Object Notation)
+ - 자바스크립트 기반으로 개발됬으며, 여러 프로그래밍 언어에도 사용할 수 있는 독립형 언어
+ - 웹 브라우저와 웹 서버 간 비동기 통신, 웹 서버 간의 데이터 교환 등에 주로 사용
+
+ - Ex) 자바스크립과 PHP 간에 JSON으로 데이터 전달
 
 
 
+2. Cross-Site Scripting(XSS) - Reflected(JSON)
+ - 이 시나리오는 스크립트를 입력 폼에 인젝션하여 쿠키 정보 획득 또는 의도하지 않는 동작을 발생시키는 내용이다.
 
+
+
+    <script>
+    //값이 없을때
+        var JSONResponseString = '{"movies":[{"response":"HINT: our master really loves Marvel movies :)"}]}';
+    //값을 입력 받았을때     
+        var JSONResponseString = '{"movies":[{"response":"aaaa??? Sorry, we don&#039;t have that movie :("}]}';
+        
+        // var JSONResponse = eval ("(" + JSONResponseString + ")");
+        var JSONResponse = JSON.parse(JSONResponseString);
+
+        document.getElementById("result").innerHTML=JSONResponse.movies[0].response;
+    </script>
+
+
+json으로 짜여있다해도 코드의 구조를 파악하여 자바스크립트 명령어를 입력할 수 있다.
+
+"}]}';</script><script>prompt('Please enter your password.')</script><script>
+
+var JSONResponseString = '{"movies":[{"response":""}]}';</script><script>prompt('Please enter your password.')</script><script>??? Sorry, we don&#039;t have that movie :("}]}';
+
+
+보안코드는 전강의와 같다
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
