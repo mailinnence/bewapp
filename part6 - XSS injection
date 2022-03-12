@@ -372,13 +372,81 @@ eval() 함수는 <script> 등을 안 써줘야 작동한다.
  - 이를 통해서 스크립트 인젝션을 실시하여 XSS를 실행할 수 있다.
 
 
+<a href='url'></a>
+는 
+<script><a href='url'></a></script>
+이런 구조이다.
+만약에 url 을 
+폼값으로 받아서 작동한다면
+
+아래값을 넣으면 작동된다.
+ㅁㅁㅁㅁ></a></script><script>alert(document.cookie)</script>
+
+<script><a href='ㅁㅁㅁㅁ></a></script><script>alert(document.cookie)</script>'></a></script>
+쿠키값이 나오게 되는 것이다.
+
+그렇다면
+역시 폼값으로 받은 변수값을 처리해야 한다
+
+스팸 메일을 보낸다면
+
+zxc></script><script>prompt('Please enter your password.')</script>
+이런 값을 넣어서 비밀번호를 입력하게끔 유도할 수 있다.
+
+html 인젝션도 가능하다.
+사이트에 따라 사이트 조작도 가능하다.
+
+
+Kim onmouseover=alert('Warning') zxc
+이런것도 가능하다.
+
+더 활용하면 정교한 피싱도 가능하다
+
+Kim onclick=alert('Warning') zxc
+
+
+최종적으로는 <script><a href='url'></a></script> 여기에
+
+<script><a href='Kim onclick=alert('투표하신다면 비밀번호를 입력해주세요.') zxc'></a></script>
+
+되어서 vote를 누를시 비밀번호를 누르도록 유도하여 피싱을 할 수 있다.
 
 
 
 
 
 
+보안코드
 
+ function xss_check_3($data, $encoding = "UTF-8")
+{
+    // htmlspecialchars - converts special characters to HTML entities   
+    // '&' (ampersand) becomes '&amp;'
+    // '"' (double quote) becomes '&quot;' when ENT_NOQUOTES is not set
+    // "'" (single quote) becomes '&#039;' (or &apos;) only when ENT_QUOTES is set
+    // '<' (less than) becomes '&lt;'
+    // '>' (greater than) becomes '&gt;' 
+    return htmlspecialchars($data, ENT_QUOTES, $encoding); 
+}
+
+ 
+
+1.
+htmlspecialchars() 함수
+       인코딩 후에
+       $name = htmlspecialchars( $_GET[ 'name' ] );
+        //http://www.w3big.com/ko/php/func-string-htmlspecialchars.html
+        //특수문자를 변환시켜서 문자로만 출력되고 기능은 상실시키는 함수
+        //          특수 문자			변환된 문자
+        //          &(앰퍼샌드)		&amp;
+        //          ""(겹따옴표)		&quot;
+        //          ''(홑따옴표) 		&#039;
+        //          <(미만) 			&lt;
+        //          >(이상)			&gt;
+
+
+2. stripslashes()
+3.파라미터 고정
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
